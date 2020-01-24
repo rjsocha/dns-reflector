@@ -1,0 +1,8 @@
+Package: dns-reflector
+Version: 1.0
+Section: custom
+Priority: optional
+Architecture: amd64
+Essential: no
+Maintainer: Robert Socha
+Description: Simple DNS server for reflecting client ip address.

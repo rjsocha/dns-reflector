@@ -1,0 +1,16 @@
+[Unit]
+Description=dns-reflector service for %I
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/sbin/dns-reflector --listen %i:53
+ProtectSystem=full
+ProtectHome=true
+KillMode=process
+RestartSec=5s
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

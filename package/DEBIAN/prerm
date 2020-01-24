@@ -1,0 +1,5 @@
+#!/bin/sh -e
+if [ -d /run/systemd/system ]; then
+	systemctl disable dns-reflector@
+	systemctl stop 'dns-reflector@*'
+fi
