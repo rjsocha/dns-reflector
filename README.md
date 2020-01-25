@@ -1,4 +1,7 @@
 # dns-reflector
+
+Static version for docker (one app image). Only for testing with simple (not functional) managment socket. More for PoC.
+
 Simple DNS server which returns client IP address for A quieries.
 
 Build

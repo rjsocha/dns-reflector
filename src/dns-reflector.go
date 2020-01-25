@@ -50,6 +50,7 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
+	"io/ioutil"
 	"github.com/miekg/dns"
 )
 
@@ -59,6 +60,8 @@ var (
 	cpu         = flag.Int("cpu", 0, "number of cpu to use")
 	listen	    = flag.String("listen","[::]:53","Listen on specific address(es) -> listen1,listen2,listenN")
 	version     = flag.Bool("version",false,"show app version")
+	client	    = flag.String("client","","say hello from cmd line")
+	socket	    = flag.String("socket","/dns.sock","managment socket")
 )
 
 const  Version = "1.0"
@@ -109,6 +112,7 @@ func handleReflect(w dns.ResponseWriter, r *dns.Msg) {
 	//	m.Extra = append(m.Extra, t)
 	}
 	w.WriteMsg(m)
+	fmt.Println("Served DNS query for ",m.Question[0].Name)
 }
 
 func serve(net,listen string, soreuseport bool) {
@@ -119,11 +123,49 @@ func serve(net,listen string, soreuseport bool) {
 	}
 }
 
+func cmdServer(c net.Conn) {
+	for {
+		buf := make([]byte, 512)
+		nr, err := c.Read(buf)
+		if err != nil {
+			return
+		}
+
+		data := buf[0:nr]
+		if(string(data) == "ls") {
+			files, err := ioutil.ReadDir("/")
+			if err == nil {
+				for _, f := range files {
+			                fmt.Println(f.Name())
+				}
+			}
+		} else {
+			fmt.Println("Server got:", string(data))
+		}
+		//_, err = c.Write(data)
+		//if err != nil {
+		//	log.Fatal("Writing client error: ", err)
+		//}
+	}
+}
+
 func main() {
 	flag.Usage = func() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	if(len(*client)>0) {
+		c, err := net.Dial("unix", *socket)
+		if err != nil {
+			fmt.Println("Dial error", err)
+			os.Exit(1)
+		}
+		defer c.Close()
+		fmt.Printf("Client Mode enabled.\n")
+		fmt.Printf("Sending to the server: %s\n",*client);
+		c.Write([]byte(*client))
+		os.Exit(1)
+	}
 	if(*version) {
 		fmt.Printf("%s\n",Version)
 		os.Exit(1)
@@ -154,9 +196,30 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	ln,err := net.Listen("unix",*socket)
+	if err != nil {
+		fmt.Println("Listen ",*socket," error: ",err)
+		os.Exit(1)
+	}
 
 	sig := make(chan os.Signal)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+
+	go func(ln net.Listener, c chan os.Signal) {
+		sig := <-c
+		fmt.Printf("Caught signal %s: shutting down.\n", sig)
+		os.Exit(0)
+		ln.Close()
+	}(ln, sig)
+
+	for {
+		fd, err := ln.Accept()
+		if err != nil {
+			fmt.Printf("Accept error: ", err)
+		}
+		cmdServer(fd)
+	}
+
 	s := <-sig
 	fmt.Printf("Bye... (%s)\n", s)
 }
